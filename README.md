@@ -8,6 +8,19 @@
 
 Uma plataforma web/mobile revolucionária que combina quizzes educativos com gamificação intensa, transformando o aprendizado em uma experiência competitiva e colaborativa.
 
+## 🚀 Deploy Rápido (Hospedagem Gratuita)
+
+**Deploy com 1 clique:**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/dodomatad/vibe-code&root-directory=apps/frontend)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/dodomatad/vibe-code)
+[![Run on Replit](https://replit.com/badge/github/dodomatad/vibe-code)](https://replit.com/new/github/dodomatad/vibe-code)
+
+**Guias de deploy:**
+- 📘 [Deploy Completo](DEPLOY.md) - Vercel + Render (Recomendado)
+- ⚡ [Deploy Simples](DEPLOY-SIMPLES.md) - Replit, Glitch, Railway
+- 🎯 [Deploy 1-Click](DEPLOY-1-CLICK.md) - Botões e automação
+
 ## ✨ Principais Features (MVP)
 
 ### 🎯 Para Professores
