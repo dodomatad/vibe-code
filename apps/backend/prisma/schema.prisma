@@ -1,0 +1,290 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  TEACHER
+  STUDENT
+  ADMIN
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  OPEN_ENDED
+  MULTI_SELECT
+}
+
+enum GameMode {
+  CLASSIC
+  COOPERATIVE
+  BATTLE_ROYAL
+  MISSION
+  DUEL
+  RELAY
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum GameStatus {
+  WAITING
+  STARTING
+  IN_PROGRESS
+  QUESTION_ACTIVE
+  QUESTION_RESULTS
+  FINISHED
+}
+
+enum PowerUpType {
+  FIFTY_FIFTY
+  EXTRA_TIME
+  SHIELD
+  VISION
+  DOUBLE_OR_NOTHING
+  COLLECTIVE_HELP
+}
+
+enum AvatarClass {
+  STRATEGIST
+  SPEEDSTER
+  SCHOLAR
+}
+
+enum LeagueTier {
+  BRONZE
+  SILVER
+  GOLD
+  DIAMOND
+  MASTER
+}
+
+enum AchievementRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(STUDENT)
+  avatar    String?
+
+  // Avatar customization
+  avatarClass AvatarClass @default(STRATEGIST)
+  avatarSkin  String      @default("default")
+  level       Int         @default(1)
+  xp          Int         @default(0)
+
+  // Relations
+  createdQuizzes Quiz[]          @relation("QuizTeacher")
+  gameSessions   GameSession[]   @relation("GameHost")
+  players        Player[]
+  achievements   UserAchievement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Quiz {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  coverImage  String?
+  gameMode    GameMode  @default(CLASSIC)
+  isPublic    Boolean   @default(false)
+  isPremium   Boolean   @default(false)
+
+  // Relations
+  teacherId   String
+  teacher     User      @relation("QuizTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  questions   Question[]
+  gameSessions GameSession[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([teacherId])
+  @@index([isPublic])
+}
+
+model Question {
+  id          String        @id @default(cuid())
+  type        QuestionType  @default(MULTIPLE_CHOICE)
+  text        String
+  imageUrl    String?
+  audioUrl    String?
+  videoUrl    String?
+  timeLimit   Int           @default(30) // seconds
+  points      Int           @default(100)
+  difficulty  Difficulty    @default(MEDIUM)
+  explanation String?
+  order       Int
+
+  // Relations
+  quizId      String
+  quiz        Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options     QuizOption[]
+  answers     PlayerAnswer[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([quizId])
+  @@index([order])
+}
+
+model QuizOption {
+  id         String   @id @default(cuid())
+  text       String
+  isCorrect  Boolean  @default(false)
+  imageUrl   String?
+
+  // Relations
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+
+  @@index([questionId])
+}
+
+model GameSession {
+  id                   String      @id @default(cuid())
+  pin                  String      @unique
+  status               GameStatus  @default(WAITING)
+  currentQuestionIndex Int         @default(0)
+
+  // Relations
+  quizId      String
+  quiz        Quiz      @relation(fields: [quizId], references: [id])
+  hostId      String
+  host        User      @relation("GameHost", fields: [hostId], references: [id])
+  players     Player[]
+
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([pin])
+  @@index([status])
+  @@index([quizId])
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  name        String
+  avatar      String   @default("default")
+  score       Int      @default(0)
+  isConnected Boolean  @default(true)
+
+  // Relations
+  sessionId   String
+  session     GameSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?          @relation(fields: [userId], references: [id])
+  answers     PlayerAnswer[]
+  powerUps    PlayerPowerUp[]
+
+  joinedAt    DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model PlayerAnswer {
+  id              String   @id @default(cuid())
+  selectedOptions String[] // Array of option IDs
+  timeToAnswer    Int      // milliseconds
+  isCorrect       Boolean
+  pointsEarned    Int
+
+  // Relations
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id])
+
+  timestamp   DateTime @default(now())
+
+  @@index([playerId])
+  @@index([questionId])
+}
+
+model PowerUp {
+  id          String      @id @default(cuid())
+  type        PowerUpType @unique
+  name        String
+  description String
+  icon        String
+  maxUses     Int         @default(3)
+
+  // Relations
+  playerPowerUps PlayerPowerUp[]
+
+  createdAt   DateTime    @default(now())
+}
+
+model PlayerPowerUp {
+  id            String @id @default(cuid())
+  remainingUses Int
+
+  // Relations
+  playerId   String
+  player     Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  powerUpId  String
+  powerUp    PowerUp @relation(fields: [powerUpId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@unique([playerId, powerUpId])
+  @@index([playerId])
+}
+
+model Achievement {
+  id          String             @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  rarity      AchievementRarity  @default(COMMON)
+  points      Int                @default(10)
+
+  // Relations
+  users       UserAchievement[]
+
+  createdAt   DateTime           @default(now())
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+
+  // Relations
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  unlockedAt    DateTime @default(now())
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
