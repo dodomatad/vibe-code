@@ -1,11 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+// Using mock database for demo (no external DB required)
+import { mockPrisma } from '../db/mock';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+export const prisma = mockPrisma as any;
