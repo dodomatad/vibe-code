@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Extension Icons</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+    canvas {
+      border: 2px solid #ddd;
+      margin: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>📦 Gerar Ícones da Extensão</h1>
+  <p>Clique no botão abaixo para gerar e baixar os ícones</p>
+
+  <button onclick="generateIcons()">🎨 Gerar Ícones</button>
+
+  <div id="preview"></div>
+
+  <script>
+    function generateIcons() {
+      const sizes = [16, 48, 128];
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '<h2>Ícones Gerados:</h2>';
+
+      sizes.forEach(size => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // Background gradient
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#667eea');
+        gradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+
+        // Add emoji/text
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${size * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎨', size / 2, size / 2);
+
+        // Add to preview
+        preview.appendChild(canvas);
+
+        // Download
+        canvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `icon${size}.png`;
+          a.click();
+        });
+      });
+
+      alert('✅ Ícones gerados e baixados! Mova-os para a pasta icons/');
+    }
+  </script>
+</body>
+</html>
