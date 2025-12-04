@@ -4,10 +4,20 @@ import OpenAI from "openai"
 import { getSystemPrompt } from "@/lib/ai/system-prompt"
 import { getOpenAITools } from "@/lib/ai/tools"
 import { parseAIResponse, extractCodeBlocks } from "@/lib/ai/code-parser"
+import { getRAGSystem } from "@/lib/ai/rag-system"
+import {
+  ErrorRecoveryEngine,
+  createErrorContext,
+  formatErrorForAI
+} from "@/lib/ai/error-recovery"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+
+// Initialize systems
+const ragSystem = getRAGSystem()
+const errorRecovery = new ErrorRecoveryEngine()
 
 // Streaming response for real-time updates
 export async function POST(request: NextRequest) {
@@ -76,13 +86,26 @@ export async function POST(request: NextRequest) {
     const fileContext = buildFileContext(files)
 
     // Generate system prompt with context
-    const systemPrompt = getSystemPrompt({
+    let systemPrompt = getSystemPrompt({
       projectName: project.name,
       projectDescription: project.description || undefined,
       existingFiles,
       currentFile,
       recentErrors: consoleErrors
     })
+
+    // RAG: Augment prompt with relevant documentation
+    systemPrompt = ragSystem.augmentPrompt(message, systemPrompt)
+
+    // Add error recovery context if there are console errors
+    if (consoleErrors && consoleErrors.length > 0) {
+      const errorContexts = consoleErrors.slice(-3).map((err: string) => {
+        const errorCtx = createErrorContext(err)
+        return formatErrorForAI(errorCtx)
+      })
+
+      systemPrompt += `\n\n## Recent Errors to Address\n\n${errorContexts.join("\n\n")}\n\nPlease analyze these errors and provide fixes if relevant to the user's request.`
+    }
 
     // Build messages
     const messages: OpenAI.ChatCompletionMessageParam[] = [

@@ -8,6 +8,18 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible"
+import {
   Send,
   Sparkles,
   User,
@@ -19,7 +31,12 @@ import {
   ChevronDown,
   ChevronUp,
   Wand2,
-  AlertCircle
+  AlertCircle,
+  Brain,
+  GitBranch,
+  Zap,
+  Eye,
+  Settings2
 } from "lucide-react"
 import { cn, generateId } from "@/lib/utils"
 import type { ChatMessageUI, CodeChange } from "@/types"
@@ -29,13 +46,28 @@ interface AIChatProps {
   projectId: string
 }
 
+type AgentMode = "standard" | "tree-of-thought" | "agent"
+
+interface ThinkingStep {
+  thought: string
+  action: string
+  observation: string
+}
+
 interface StreamEvent {
-  type: "content" | "code_changes" | "tool_calls" | "done" | "error"
+  type: "content" | "code_changes" | "tool_calls" | "done" | "error" | "status" | "thinking"
   content?: string
   changes?: CodeChange[]
   calls?: Array<{ name: string; arguments: any }>
   fullContent?: string
   error?: string
+  status?: string
+  message?: string
+  thought?: string
+  action?: string
+  observation?: string
+  success?: boolean
+  tokensUsed?: number
 }
 
 export function AIChat({ projectId }: AIChatProps) {
@@ -47,16 +79,29 @@ export function AIChat({ projectId }: AIChatProps) {
     updateFile,
     addFile,
     activeTabId,
-    openTabs
+    openTabs,
+    consoleLogs
   } = useEditorStore()
 
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [pendingChanges, setPendingChanges] = useState<CodeChange[]>([])
   const [expandedChanges, setExpandedChanges] = useState<Set<string>>(new Set())
+  const [agentMode, setAgentMode] = useState<AgentMode>("standard")
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([])
+  const [currentStatus, setCurrentStatus] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Get recent console errors for context
+  const getRecentErrors = () => {
+    return consoleLogs
+      .filter(log => log.type === "error")
+      .slice(-5)
+      .map(log => log.message)
+  }
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -87,6 +132,8 @@ export function AIChat({ projectId }: AIChatProps) {
     setInput("")
     setIsLoading(true)
     setPendingChanges([])
+    setThinkingSteps([])
+    setCurrentStatus(null)
 
     const assistantMessageId = generateId()
     const assistantMessage: ChatMessageUI = {
@@ -101,8 +148,13 @@ export function AIChat({ projectId }: AIChatProps) {
     // Create abort controller for cancellation
     abortControllerRef.current = new AbortController()
 
+    // Decide API endpoint based on mode
+    const apiEndpoint = agentMode === "agent" || agentMode === "tree-of-thought"
+      ? "/api/agent"
+      : "/api/chat"
+
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -111,6 +163,8 @@ export function AIChat({ projectId }: AIChatProps) {
           files: files,
           history: messages.slice(-20).map(m => ({ role: m.role, content: m.content })),
           currentFile: getCurrentFileContext(),
+          consoleErrors: getRecentErrors(),
+          mode: agentMode === "tree-of-thought" ? "tree-of-thought" : "standard",
           useStreaming: true
         }),
         signal: abortControllerRef.current.signal
@@ -148,6 +202,20 @@ export function AIChat({ projectId }: AIChatProps) {
                     })
                     break
 
+                  case "status":
+                    setCurrentStatus(event.message || event.status || null)
+                    break
+
+                  case "thinking":
+                    if (event.thought && event.action) {
+                      setThinkingSteps(prev => [...prev, {
+                        thought: event.thought!,
+                        action: event.action!,
+                        observation: event.observation || ""
+                      }])
+                    }
+                    break
+
                   case "code_changes":
                     if (event.changes) {
                       codeChanges = event.changes
@@ -161,10 +229,15 @@ export function AIChat({ projectId }: AIChatProps) {
                       isStreaming: false,
                       codeChanges: codeChanges
                     })
+                    setCurrentStatus(null)
+                    if (event.tokensUsed) {
+                      toast.info(`Tokens usados: ${event.tokensUsed}`)
+                    }
                     break
 
                   case "error":
                     toast.error(event.error || "Erro no streaming")
+                    setCurrentStatus(null)
                     break
                 }
               } catch {
@@ -306,11 +379,105 @@ export function AIChat({ projectId }: AIChatProps) {
   return (
     <div className="h-full flex flex-col border-l bg-background">
       {/* Header */}
-      <div className="p-3 border-b flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" />
-        <span className="font-medium">Vibe AI</span>
-        <Badge variant="secondary" className="ml-auto">GPT-4</Badge>
+      <div className="p-3 border-b">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <span className="font-medium">Vibe AI</span>
+          <Badge variant="secondary" className="ml-auto">
+            {agentMode === "agent" ? "Agent" : agentMode === "tree-of-thought" ? "ToT" : "GPT-4"}
+          </Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            <Settings2 className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="mt-3 p-3 bg-muted/50 rounded-md space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Modo de IA</span>
+              <Select value={agentMode} onValueChange={(v) => setAgentMode(v as AgentMode)}>
+                <SelectTrigger className="w-[140px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-3 w-3" />
+                      <span>Rapido</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="agent">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-3 w-3" />
+                      <span>Agente</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="tree-of-thought">
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="h-3 w-3" />
+                      <span>Tree-of-Thought</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {agentMode === "standard" && "Respostas rapidas para tarefas simples."}
+              {agentMode === "agent" && "Sistema multi-agente com planejamento, execucao e revisao automatica."}
+              {agentMode === "tree-of-thought" && "Explora multiplas solucoes e escolhe a melhor abordagem."}
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Status Indicator */}
+      {currentStatus && (
+        <div className="px-4 py-2 bg-primary/10 border-b flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-sm text-primary">{currentStatus}</span>
+        </div>
+      )}
+
+      {/* Thinking Steps (for agent mode) */}
+      {thinkingSteps.length > 0 && (
+        <Collapsible className="border-b">
+          <CollapsibleTrigger className="w-full px-4 py-2 flex items-center gap-2 hover:bg-muted/50">
+            <Brain className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Pensamento da IA</span>
+            <Badge variant="outline" className="ml-auto text-xs">
+              {thinkingSteps.length} etapas
+            </Badge>
+            <ChevronDown className="h-4 w-4" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-4 py-2 space-y-2 bg-muted/30 max-h-40 overflow-auto">
+              {thinkingSteps.map((step, i) => (
+                <div key={i} className="text-xs space-y-1 pb-2 border-b border-muted last:border-0">
+                  <div className="flex items-start gap-2">
+                    <Eye className="h-3 w-3 mt-0.5 text-blue-500 flex-shrink-0" />
+                    <span className="text-muted-foreground">{step.thought}</span>
+                  </div>
+                  <div className="flex items-start gap-2 ml-5">
+                    <Code className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span className="font-mono text-green-600">{step.action}</span>
+                  </div>
+                  {step.observation && (
+                    <div className="ml-5 text-muted-foreground truncate">
+                      → {step.observation}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1" ref={scrollRef}>
@@ -320,13 +487,15 @@ export function AIChat({ projectId }: AIChatProps) {
               <Wand2 className="h-12 w-12 text-primary/50 mx-auto mb-4" />
               <p className="text-muted-foreground mb-2">Ola! Sou o Vibe AI.</p>
               <p className="text-sm text-muted-foreground">
-                Descreva o que voce quer criar ou modificar.
+                {agentMode === "standard" && "Descreva o que voce quer criar ou modificar."}
+                {agentMode === "agent" && "Modo Agente: Planejo, executo e reviso automaticamente."}
+                {agentMode === "tree-of-thought" && "Modo ToT: Exploro multiplas solucoes para encontrar a melhor."}
               </p>
               <div className="mt-4 flex flex-wrap gap-2 justify-center">
                 {[
                   "Crie um componente de login",
-                  "Adicione um dark mode",
-                  "Crie uma landing page"
+                  "Corrija os erros do console",
+                  "Refatore este codigo"
                 ].map(suggestion => (
                   <Button
                     key={suggestion}
