@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RefreshCw, Monitor, Terminal, Smartphone, Tablet, ExternalLink } from "lucide-react"
 
 interface LivePreviewProps {
-  projectId: string
+  projectId?: string
 }
 
 type ViewportSize = "desktop" | "tablet" | "mobile"
