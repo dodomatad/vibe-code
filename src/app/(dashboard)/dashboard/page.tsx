@@ -12,22 +12,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { toast } from "sonner"
-import {
-  Plus,
-  Search,
-  Folder,
-  Clock,
-  Globe,
-  Lock,
-  MoreVertical,
-  Sparkles,
-  LogOut,
-  Settings,
-  Loader2
-} from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { toast } from "sonner"
+import { Plus, Search, Folder, Clock, MoreVertical, Sparkles, LogOut, Loader2 } from "lucide-react"
 import type { Project } from "@/types"
 import { slugify, formatRelativeTime } from "@/lib/utils"
 import { templates } from "@/lib/templates"
@@ -42,8 +30,6 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
-
-  // New project form
   const [newProjectName, setNewProjectName] = useState("")
   const [newProjectTemplate, setNewProjectTemplate] = useState("react-starter")
 
@@ -54,22 +40,15 @@ export default function DashboardPage() {
   }, [user, userLoading, router])
 
   useEffect(() => {
-    if (user) {
-      loadProjects()
-    }
+    if (user) loadProjects()
   }, [user])
 
   const loadProjects = async () => {
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("updated_at", { ascending: false })
-
+    const { data, error } = await supabase.from("projects").select("*").order("updated_at", { ascending: false })
     if (error) {
       toast.error("Erro ao carregar projetos")
       return
     }
-
     setProjects(data || [])
     setLoading(false)
   }
@@ -82,17 +61,11 @@ export default function DashboardPage() {
 
     setCreating(true)
     const slug = slugify(newProjectName)
-    const template = templates.find(t => t.id === newProjectTemplate)
+    const template = templates.find((t) => t.id === newProjectTemplate)
 
     const { data: project, error } = await supabase
       .from("projects")
-      .insert({
-        name: newProjectName,
-        slug,
-        owner_id: user!.id,
-        framework: template?.framework || "react",
-        description: template?.description,
-      })
+      .insert({ name: newProjectName, slug, owner_id: user!.id, framework: template?.framework || "react" })
       .select()
       .single()
 
@@ -102,7 +75,6 @@ export default function DashboardPage() {
       return
     }
 
-    // Create initial files from template
     if (template) {
       const files = Object.entries(template.files).map(([path, content]) => ({
         project_id: project.id,
@@ -110,7 +82,6 @@ export default function DashboardPage() {
         content,
         is_directory: false,
       }))
-
       await supabase.from("project_files").insert(files)
     }
 
@@ -121,18 +92,13 @@ export default function DashboardPage() {
   }
 
   const deleteProject = async (projectId: string) => {
-    const { error } = await supabase
-      .from("projects")
-      .delete()
-      .eq("id", projectId)
-
+    const { error } = await supabase.from("projects").delete().eq("id", projectId)
     if (error) {
       toast.error("Erro ao deletar projeto")
       return
     }
-
     toast.success("Projeto deletado")
-    setProjects(projects.filter(p => p.id !== projectId))
+    setProjects(projects.filter((p) => p.id !== projectId))
   }
 
   const handleLogout = async () => {
@@ -140,9 +106,7 @@ export default function DashboardPage() {
     router.push("/")
   }
 
-  const filteredProjects = projects.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProjects = projects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   if (userLoading) {
     return (
@@ -154,7 +118,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl">
@@ -173,18 +136,12 @@ export default function DashboardPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Criar novo projeto</DialogTitle>
-                  <DialogDescription>
-                    Escolha um template e comece a criar
-                  </DialogDescription>
+                  <DialogDescription>Escolha um template e comece a criar</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Nome do projeto</Label>
-                    <Input
-                      placeholder="Meu app incrível"
-                      value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
-                    />
+                    <Input placeholder="Meu app incrivel" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Template</Label>
@@ -219,17 +176,11 @@ export default function DashboardPage() {
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user?.user_metadata?.avatar_url} />
-                    <AvatarFallback>
-                      {user?.email?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Configurações
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Sair
@@ -240,23 +191,15 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold">Meus Projetos</h1>
-            <p className="text-muted-foreground">
-              Gerencie e edite seus projetos
-            </p>
+            <p className="text-muted-foreground">Gerencie e edite seus projetos</p>
           </div>
           <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar projetos..."
-              className="pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <Input placeholder="Buscar projetos..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
         </div>
 
@@ -277,14 +220,8 @@ export default function DashboardPage() {
         ) : filteredProjects.length === 0 ? (
           <div className="text-center py-20">
             <Folder className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">
-              {searchQuery ? "Nenhum projeto encontrado" : "Nenhum projeto ainda"}
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              {searchQuery
-                ? "Tente buscar por outro termo"
-                : "Crie seu primeiro projeto para começar"}
-            </p>
+            <h2 className="text-xl font-semibold mb-2">{searchQuery ? "Nenhum projeto encontrado" : "Nenhum projeto ainda"}</h2>
+            <p className="text-muted-foreground mb-6">{searchQuery ? "Tente buscar por outro termo" : "Crie seu primeiro projeto para comecar"}</p>
             {!searchQuery && (
               <Button onClick={() => setCreateOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -298,18 +235,10 @@ export default function DashboardPage() {
               <Card key={project.id} className="group hover:shadow-lg transition">
                 <CardHeader className="flex flex-row items-start justify-between space-y-0">
                   <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2">
-                      <Link
-                        href={`/editor/${project.id}`}
-                        className="hover:text-primary transition"
-                      >
+                    <CardTitle>
+                      <Link href={`/editor/${project.id}`} className="hover:text-primary transition">
                         {project.name}
                       </Link>
-                      {project.is_public ? (
-                        <Globe className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Lock className="h-4 w-4 text-muted-foreground" />
-                      )}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-2">
                       <Clock className="h-3 w-3" />
@@ -324,14 +253,9 @@ export default function DashboardPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild>
-                        <Link href={`/editor/${project.id}`}>
-                          Abrir editor
-                        </Link>
+                        <Link href={`/editor/${project.id}`}>Abrir editor</Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => deleteProject(project.id)}
-                      >
+                      <DropdownMenuItem className="text-destructive" onClick={() => deleteProject(project.id)}>
                         Deletar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -340,22 +264,12 @@ export default function DashboardPage() {
                 <CardContent>
                   <Link href={`/editor/${project.id}`}>
                     <div className="aspect-video rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition cursor-pointer">
-                      {project.thumbnail_url ? (
-                        <img
-                          src={project.thumbnail_url}
-                          alt={project.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <Folder className="h-12 w-12 text-muted-foreground" />
-                      )}
+                      <Folder className="h-12 w-12 text-muted-foreground" />
                     </div>
                   </Link>
                   <div className="flex items-center gap-2 mt-4">
                     <Badge variant="secondary">{project.framework}</Badge>
-                    {project.deployed_url && (
-                      <Badge variant="success">Online</Badge>
-                    )}
+                    {project.deployed_url && <Badge variant="success">Online</Badge>}
                   </div>
                 </CardContent>
               </Card>

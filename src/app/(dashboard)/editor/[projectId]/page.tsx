@@ -26,43 +26,24 @@ export default function EditorPage() {
       router.push("/login")
       return
     }
-
-    if (user && projectId) {
-      loadProject()
-    }
+    if (user && projectId) loadProject()
   }, [user, userLoading, projectId])
 
   const loadProject = async () => {
     setLoading(true)
 
-    // Load project
-    const { data: project, error: projectError } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("id", projectId)
-      .single()
+    const { data: project, error: projectError } = await supabase.from("projects").select("*").eq("id", projectId).single()
 
     if (projectError || !project) {
-      toast.error("Projeto não encontrado")
+      toast.error("Projeto nao encontrado")
       router.push("/dashboard")
       return
     }
 
     setProject(project)
 
-    // Load files
-    const { data: files, error: filesError } = await supabase
-      .from("project_files")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("path")
+    const { data: files } = await supabase.from("project_files").select("*").eq("project_id", projectId).order("path")
 
-    if (filesError) {
-      toast.error("Erro ao carregar arquivos")
-      return
-    }
-
-    // Convert to file tree structure
     const fileTree = buildFileTree(files || [])
     setFiles(fileTree)
 
@@ -88,7 +69,6 @@ function buildFileTree(files: any[]): FileNode[] {
   const root: FileNode[] = []
   const pathMap = new Map<string, FileNode>()
 
-  // Sort files so directories come before files
   const sortedFiles = [...files].sort((a, b) => {
     const aDepth = a.path.split("/").length
     const bDepth = b.path.split("/").length

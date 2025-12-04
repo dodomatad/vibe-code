@@ -28,9 +28,7 @@ export default function SignUpPage() {
       email,
       password,
       options: {
-        data: {
-          full_name: fullName,
-        },
+        data: { full_name: fullName },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
@@ -49,9 +47,7 @@ export default function SignUpPage() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
 
     if (error) {
@@ -68,30 +64,16 @@ export default function SignUpPage() {
             <Sparkles className="h-8 w-8 text-primary" />
             <span className="gradient-text">Vibe Code</span>
           </Link>
-          <p className="text-muted-foreground mt-2">
-            Comece a criar apps incríveis
-          </p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Criar conta</CardTitle>
-            <CardDescription>
-              Crie sua conta grátis para começar
-            </CardDescription>
+            <CardDescription>Crie sua conta gratis para comecar</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleGitHubSignUp}
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Github className="h-4 w-4 mr-2" />
-              )}
+            <Button variant="outline" className="w-full" onClick={handleGitHubSignUp} disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Github className="h-4 w-4 mr-2" />}
               Continuar com GitHub
             </Button>
 
@@ -100,49 +82,22 @@ export default function SignUpPage() {
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  ou cadastre com email
-                </span>
+                <span className="bg-card px-2 text-muted-foreground">ou</span>
               </div>
             </div>
 
             <form onSubmit={handleEmailSignUp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome completo</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Seu nome"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
+                <Input id="name" type="text" placeholder="Seu nome" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Mínimo de 6 caracteres
-                </p>
+                <Input id="password" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -152,24 +107,10 @@ export default function SignUpPage() {
           </CardContent>
           <CardFooter>
             <p className="text-sm text-muted-foreground text-center w-full">
-              Já tem uma conta?{" "}
-              <Link href="/login" className="text-primary hover:underline">
-                Entrar
-              </Link>
+              Ja tem uma conta? <Link href="/login" className="text-primary hover:underline">Entrar</Link>
             </p>
           </CardFooter>
         </Card>
-
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          Ao criar uma conta, você concorda com nossos{" "}
-          <Link href="/terms" className="underline">
-            Termos de Serviço
-          </Link>{" "}
-          e{" "}
-          <Link href="/privacy" className="underline">
-            Política de Privacidade
-          </Link>
-        </p>
       </div>
     </div>
   )

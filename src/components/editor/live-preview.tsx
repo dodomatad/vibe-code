@@ -1,88 +1,54 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useState } from "react"
+import { useEditorStore } from "@/stores/editor-store"
+import { useTheme } from "next-themes"
 import {
   SandpackProvider,
-  SandpackLayout,
   SandpackPreview,
   SandpackConsole,
 } from "@codesandbox/sandpack-react"
-import { useEditorStore } from "@/stores/editor-store"
-import { useProjectStore } from "@/stores/project-store"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { RefreshCw, ExternalLink, Monitor, Smartphone, Tablet } from "lucide-react"
-import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { RefreshCw, Monitor, Terminal, Smartphone, Tablet, ExternalLink } from "lucide-react"
 
 interface LivePreviewProps {
   projectId: string
 }
 
+type ViewportSize = "desktop" | "tablet" | "mobile"
+
+const viewportSizes: Record<ViewportSize, { width: string; icon: React.ReactNode }> = {
+  desktop: { width: "100%", icon: <Monitor className="h-4 w-4" /> },
+  tablet: { width: "768px", icon: <Tablet className="h-4 w-4" /> },
+  mobile: { width: "375px", icon: <Smartphone className="h-4 w-4" /> },
+}
+
 export function LivePreview({ projectId }: LivePreviewProps) {
-  const { files, openTabs } = useEditorStore()
-  const { project } = useProjectStore()
-  const [viewportSize, setViewportSize] = useState<"desktop" | "tablet" | "mobile">("desktop")
-  const [key, setKey] = useState(0)
+  const { files } = useEditorStore()
+  const { theme } = useTheme()
+  const [viewport, setViewport] = useState<ViewportSize>("desktop")
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [activeTab, setActiveTab] = useState("preview")
 
-  // Convert file tree to Sandpack files format
-  const sandpackFiles = useMemo(() => {
-    const result: Record<string, string> = {}
+  const sandpackFiles = buildSandpackFiles(files)
 
-    // Get content from open tabs (has latest edits) or from files
-    const getFileContent = (path: string): string | undefined => {
-      const tab = openTabs.find((t) => t.path === path)
-      if (tab) return tab.content
-
-      const findInTree = (nodes: typeof files): string | undefined => {
-        for (const node of nodes) {
-          if (node.path === path) return node.content
-          if (node.children) {
-            const found = findInTree(node.children)
-            if (found !== undefined) return found
-          }
-        }
-        return undefined
-      }
-
-      return findInTree(files)
-    }
-
-    // Flatten file tree
-    const flattenTree = (nodes: typeof files) => {
-      for (const node of nodes) {
-        if (node.type === "file") {
-          const content = getFileContent(node.path)
-          if (content !== undefined) {
-            result[node.path] = content
-          }
-        }
-        if (node.children) {
-          flattenTree(node.children)
-        }
-      }
-    }
-
-    flattenTree(files)
-    return result
-  }, [files, openTabs])
-
-  const viewportStyles = {
-    desktop: { width: "100%", maxWidth: "100%" },
-    tablet: { width: "768px", maxWidth: "768px" },
-    mobile: { width: "375px", maxWidth: "375px" },
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1)
   }
 
-  // Determine template based on project framework
-  const template = project?.framework === "nextjs" ? "nextjs" : "react-ts"
+  const handleOpenExternal = () => {
+    // In a real implementation, this would open the preview in a new tab
+    // For now, we'll just show a toast or do nothing
+  }
 
-  // If no files, show placeholder
   if (Object.keys(sandpackFiles).length === 0) {
     return (
       <div className="h-full flex items-center justify-center bg-muted/30">
-        <div className="text-center text-muted-foreground">
-          <Monitor className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>Crie alguns arquivos para ver o preview</p>
+        <div className="text-center">
+          <Monitor className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+          <p className="text-muted-foreground">Nenhum arquivo para preview</p>
+          <p className="text-sm text-muted-foreground/70">Crie arquivos para ver o preview</p>
         </div>
       </div>
     )
@@ -90,121 +56,121 @@ export function LivePreview({ projectId }: LivePreviewProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Toolbar */}
-      <div className="h-10 border-b flex items-center justify-between px-2 bg-muted/30">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Preview</span>
-          <Badge variant="secondary" className="text-xs">Live</Badge>
+      <div className="flex items-center justify-between p-2 border-b bg-background">
+        <div className="flex items-center gap-1">
+          {(Object.keys(viewportSizes) as ViewportSize[]).map((size) => (
+            <Button
+              key={size}
+              variant={viewport === size ? "secondary" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewport(size)}
+              title={size.charAt(0).toUpperCase() + size.slice(1)}
+            >
+              {viewportSizes[size].icon}
+            </Button>
+          ))}
         </div>
 
         <div className="flex items-center gap-1">
-          <Button
-            variant={viewportSize === "desktop" ? "secondary" : "ghost"}
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setViewportSize("desktop")}
-          >
-            <Monitor className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewportSize === "tablet" ? "secondary" : "ghost"}
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setViewportSize("tablet")}
-          >
-            <Tablet className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewportSize === "mobile" ? "secondary" : "ghost"}
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setViewportSize("mobile")}
-          >
-            <Smartphone className="h-4 w-4" />
-          </Button>
-
-          <div className="w-px h-5 bg-border mx-1" />
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setKey((k) => k + 1)}
-          >
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh} title="Refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenExternal} title="Abrir em nova aba">
             <ExternalLink className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Sandpack Preview */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="preview" className="h-full flex flex-col">
-          <TabsList className="w-full justify-start rounded-none border-b bg-muted/30 h-9">
-            <TabsTrigger value="preview" className="text-xs">
-              Preview
-            </TabsTrigger>
-            <TabsTrigger value="console" className="text-xs">
-              Console
-            </TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <TabsList className="w-full justify-start rounded-none border-b bg-background h-9 px-2">
+          <TabsTrigger value="preview" className="text-xs">
+            <Monitor className="h-3 w-3 mr-1" />
+            Preview
+          </TabsTrigger>
+          <TabsTrigger value="console" className="text-xs">
+            <Terminal className="h-3 w-3 mr-1" />
+            Console
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="preview" className="flex-1 m-0 overflow-auto">
-            <div
-              className="h-full flex justify-center bg-muted/20 p-4"
-              style={viewportSize !== "desktop" ? { alignItems: "flex-start" } : {}}
-            >
+        <div className="flex-1 overflow-hidden">
+          <SandpackProvider
+            key={refreshKey}
+            template="react"
+            theme={theme === "dark" ? "dark" : "light"}
+            files={sandpackFiles}
+            options={{
+              externalResources: ["https://cdn.tailwindcss.com"],
+              recompileMode: "delayed",
+              recompileDelay: 500,
+            }}
+          >
+            <TabsContent value="preview" className="h-full m-0 p-0">
               <div
-                className="bg-background rounded-lg shadow-lg overflow-hidden h-full"
-                style={viewportStyles[viewportSize]}
+                className="h-full flex justify-center bg-muted/30 overflow-auto"
+                style={{ padding: viewport !== "desktop" ? "16px" : 0 }}
               >
-                <SandpackProvider
-                  key={key}
-                  template={template}
-                  files={sandpackFiles}
-                  theme="dark"
-                  options={{
-                    externalResources: [
-                      "https://cdn.tailwindcss.com",
-                    ],
-                    recompileMode: "delayed",
-                    recompileDelay: 500,
-                  }}
-                  customSetup={{
-                    dependencies: {
-                      "react": "^18.2.0",
-                      "react-dom": "^18.2.0",
-                      "lucide-react": "latest",
-                    },
+                <div
+                  className="h-full bg-background shadow-lg transition-all duration-300"
+                  style={{
+                    width: viewportSizes[viewport].width,
+                    maxWidth: "100%",
                   }}
                 >
-                  <SandpackLayout style={{ height: "100%", border: "none" }}>
-                    <SandpackPreview
-                      showNavigator={false}
-                      showOpenInCodeSandbox={false}
-                      showRefreshButton={false}
-                      style={{ height: "100%" }}
-                    />
-                  </SandpackLayout>
-                </SandpackProvider>
+                  <SandpackPreview
+                    showNavigator={false}
+                    showRefreshButton={false}
+                    showOpenInCodeSandbox={false}
+                    style={{ height: "100%" }}
+                  />
+                </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="console" className="flex-1 m-0">
-            <SandpackProvider
-              key={`console-${key}`}
-              template={template}
-              files={sandpackFiles}
-              theme="dark"
-            >
+            <TabsContent value="console" className="h-full m-0 p-0">
               <SandpackConsole style={{ height: "100%" }} />
-            </SandpackProvider>
-          </TabsContent>
-        </Tabs>
-      </div>
+            </TabsContent>
+          </SandpackProvider>
+        </div>
+      </Tabs>
     </div>
   )
+}
+
+function buildSandpackFiles(files: any[]): Record<string, string> {
+  const sandpackFiles: Record<string, string> = {}
+
+  const processFiles = (nodes: any[]) => {
+    for (const node of nodes) {
+      if (node.type === "file" && node.content) {
+        // Sandpack expects paths starting with /
+        const path = node.path.startsWith("/") ? node.path : `/${node.path}`
+        sandpackFiles[path] = node.content
+      }
+      if (node.children) {
+        processFiles(node.children)
+      }
+    }
+  }
+
+  processFiles(files)
+
+  // Ensure we have an entry point
+  if (!sandpackFiles["/App.js"] && !sandpackFiles["/App.tsx"] && !sandpackFiles["/App.jsx"]) {
+    // Check for index files
+    if (!sandpackFiles["/index.js"] && !sandpackFiles["/index.tsx"] && !sandpackFiles["/index.jsx"]) {
+      // Create a default App.js if none exists
+      sandpackFiles["/App.js"] = `export default function App() {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold">Bem-vindo ao Vibe Code</h1>
+      <p className="mt-2 text-gray-600">Comece a editar seus arquivos para ver o preview.</p>
+    </div>
+  )
+}`
+    }
+  }
+
+  return sandpackFiles
 }

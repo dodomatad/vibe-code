@@ -23,10 +23,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       toast.error(error.message)
@@ -42,9 +39,7 @@ export default function LoginPage() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
 
     if (error) {
@@ -61,30 +56,16 @@ export default function LoginPage() {
             <Sparkles className="h-8 w-8 text-primary" />
             <span className="gradient-text">Vibe Code</span>
           </Link>
-          <p className="text-muted-foreground mt-2">
-            Construa apps incríveis com IA
-          </p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Entrar</CardTitle>
-            <CardDescription>
-              Entre na sua conta para continuar
-            </CardDescription>
+            <CardDescription>Entre na sua conta para continuar</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleGitHubLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Github className="h-4 w-4 mr-2" />
-              )}
+            <Button variant="outline" className="w-full" onClick={handleGitHubLogin} disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Github className="h-4 w-4 mr-2" />}
               Continuar com GitHub
             </Button>
 
@@ -93,34 +74,18 @@ export default function LoginPage() {
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  ou continue com email
-                </span>
+                <span className="bg-card px-2 text-muted-foreground">ou</span>
               </div>
             </div>
 
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <Input id="password" type="password" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -128,18 +93,9 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
-            <Link
-              href="/forgot-password"
-              className="text-sm text-muted-foreground hover:text-primary"
-            >
-              Esqueceu sua senha?
-            </Link>
-            <p className="text-sm text-muted-foreground">
-              Não tem uma conta?{" "}
-              <Link href="/signup" className="text-primary hover:underline">
-                Criar conta
-              </Link>
+          <CardFooter>
+            <p className="text-sm text-muted-foreground text-center w-full">
+              Nao tem uma conta? <Link href="/signup" className="text-primary hover:underline">Criar conta</Link>
             </p>
           </CardFooter>
         </Card>

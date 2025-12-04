@@ -5,9 +5,7 @@ interface EditorState {
   // File tree
   files: FileNode[]
   setFiles: (files: FileNode[]) => void
-  addFile: (file: FileNode) => void
   updateFile: (path: string, content: string) => void
-  deleteFile: (path: string) => void
 
   // Tabs
   openTabs: EditorTab[]
@@ -16,13 +14,11 @@ interface EditorState {
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   updateTabContent: (id: string, content: string) => void
-  markTabDirty: (id: string, dirty: boolean) => void
 
   // Chat
   messages: ChatMessageUI[]
   addMessage: (message: ChatMessageUI) => void
   updateMessage: (id: string, updates: Partial<ChatMessageUI>) => void
-  clearMessages: () => void
 
   // UI State
   sidebarOpen: boolean
@@ -37,18 +33,13 @@ interface EditorState {
   setSelectedFilePath: (path: string | null) => void
 }
 
-export const useEditorStore = create<EditorState>((set, get) => ({
+export const useEditorStore = create<EditorState>((set) => ({
   // File tree
   files: [],
   setFiles: (files) => set({ files }),
-  addFile: (file) => set((state) => ({ files: [...state.files, file] })),
   updateFile: (path, content) =>
     set((state) => ({
       files: updateFileInTree(state.files, path, content),
-    })),
-  deleteFile: (path) =>
-    set((state) => ({
-      files: deleteFileFromTree(state.files, path),
     })),
 
   // Tabs
@@ -60,45 +51,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (existing) {
         return { activeTabId: existing.id }
       }
-      return {
-        openTabs: [...state.openTabs, tab],
-        activeTabId: tab.id,
-      }
+      return { openTabs: [...state.openTabs, tab], activeTabId: tab.id }
     }),
   closeTab: (id) =>
     set((state) => {
       const tabs = state.openTabs.filter((t) => t.id !== id)
-      const activeId =
-        state.activeTabId === id
-          ? tabs[tabs.length - 1]?.id ?? null
-          : state.activeTabId
+      const activeId = state.activeTabId === id ? tabs[tabs.length - 1]?.id ?? null : state.activeTabId
       return { openTabs: tabs, activeTabId: activeId }
     }),
   setActiveTab: (id) => set({ activeTabId: id }),
   updateTabContent: (id, content) =>
     set((state) => ({
-      openTabs: state.openTabs.map((t) =>
-        t.id === id ? { ...t, content, isDirty: true } : t
-      ),
-    })),
-  markTabDirty: (id, dirty) =>
-    set((state) => ({
-      openTabs: state.openTabs.map((t) =>
-        t.id === id ? { ...t, isDirty: dirty } : t
-      ),
+      openTabs: state.openTabs.map((t) => (t.id === id ? { ...t, content, isDirty: true } : t)),
     })),
 
   // Chat
   messages: [],
-  addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+  addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   updateMessage: (id, updates) =>
     set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === id ? { ...m, ...updates } : m
-      ),
+      messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
     })),
-  clearMessages: () => set({ messages: [] }),
 
   // UI State
   sidebarOpen: true,
@@ -113,12 +86,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSelectedFilePath: (path) => set({ selectedFilePath: path }),
 }))
 
-// Helper functions
-function updateFileInTree(
-  files: FileNode[],
-  path: string,
-  content: string
-): FileNode[] {
+function updateFileInTree(files: FileNode[], path: string, content: string): FileNode[] {
   return files.map((file) => {
     if (file.path === path) {
       return { ...file, content }
@@ -128,15 +96,4 @@ function updateFileInTree(
     }
     return file
   })
-}
-
-function deleteFileFromTree(files: FileNode[], path: string): FileNode[] {
-  return files
-    .filter((file) => file.path !== path)
-    .map((file) => {
-      if (file.children) {
-        return { ...file, children: deleteFileFromTree(file.children, path) }
-      }
-      return file
-    })
 }

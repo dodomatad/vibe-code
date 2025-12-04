@@ -14,15 +14,12 @@ const fileIcons: Record<string, string> = {
   css: "text-pink-400",
   html: "text-orange-400",
   json: "text-green-400",
-  md: "text-gray-400",
 }
 
 export function EditorTabs() {
   const { openTabs, activeTabId, setActiveTab, closeTab } = useEditorStore()
 
-  if (openTabs.length === 0) {
-    return null
-  }
+  if (openTabs.length === 0) return null
 
   return (
     <div className="border-b bg-muted/30">
@@ -36,24 +33,12 @@ export function EditorTabs() {
             return (
               <div
                 key={tab.id}
-                className={cn(
-                  "group flex items-center gap-2 px-4 py-2 border-r cursor-pointer transition-colors",
-                  isActive
-                    ? "bg-background border-b-2 border-b-primary"
-                    : "hover:bg-muted/50"
-                )}
+                className={cn("group flex items-center gap-2 px-4 py-2 border-r cursor-pointer transition-colors", isActive ? "bg-background border-b-2 border-b-primary" : "hover:bg-muted/50")}
                 onClick={() => setActiveTab(tab.id)}
               >
                 <FileCode className={cn("h-4 w-4", iconColor)} />
-                <span className={cn(
-                  "text-sm",
-                  isActive ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {tab.name}
-                </span>
-                {tab.isDirty && (
-                  <span className="w-2 h-2 rounded-full bg-primary" />
-                )}
+                <span className={cn("text-sm", isActive ? "text-foreground" : "text-muted-foreground")}>{tab.name}</span>
+                {tab.isDirty && <span className="w-2 h-2 rounded-full bg-primary" />}
                 <Button
                   variant="ghost"
                   size="icon"

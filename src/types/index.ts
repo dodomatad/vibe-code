@@ -7,7 +7,6 @@ export interface FileNode {
   type: "file" | "folder"
   children?: FileNode[]
   content?: string
-  language?: string
 }
 
 export interface ChatMessageUI {
@@ -39,16 +38,7 @@ export interface ProjectTemplate {
   name: string
   description: string
   framework: string
-  thumbnail: string
   files: Record<string, string>
-}
-
-export interface DeploymentStatus {
-  id: string
-  status: "pending" | "building" | "ready" | "error"
-  url?: string
-  error?: string
-  progress?: number
 }
 
 export interface CollaboratorPresence {
@@ -62,12 +52,4 @@ export interface CollaboratorPresence {
     column: number
   }
   lastSeen: Date
-}
-
-export interface AIPromptContext {
-  files: Record<string, string>
-  currentFile?: string
-  selectedCode?: string
-  projectFramework: string
-  chatHistory: ChatMessageUI[]
 }

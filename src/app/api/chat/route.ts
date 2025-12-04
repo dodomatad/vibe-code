@@ -1,55 +1,81 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 import OpenAI from "openai"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-const SYSTEM_PROMPT = `Você é um assistente de programação especializado em criar aplicações web modernas. Você ajuda os usuários a:
+const SYSTEM_PROMPT = `Voce e um assistente de programacao especializado em criar e modificar codigo.
+Voce ajuda usuarios a construir aplicacoes web modernas usando React, TypeScript, Tailwind CSS e outras tecnologias.
 
-1. Criar novos componentes React/TypeScript
-2. Modificar código existente
-3. Corrigir bugs
-4. Explicar código
-5. Sugerir melhorias
+Quando o usuario pedir para criar ou modificar codigo:
+1. Analise o contexto dos arquivos existentes
+2. Gere codigo limpo, moderno e bem estruturado
+3. Use TypeScript quando apropriado
+4. Siga as melhores praticas do ecossistema React/Next.js
+5. Use Tailwind CSS para estilizacao
+6. Sempre responda em portugues
 
-Quando gerar código:
-- Use TypeScript sempre que possível
-- Use Tailwind CSS para estilização
-- Siga as melhores práticas de React (hooks, componentes funcionais)
-- Inclua o caminho do arquivo no início do código como comentário: // /caminho/do/arquivo.tsx
-- Sempre formate o código corretamente com indentação
+Se o usuario pedir para criar um novo arquivo ou componente, forneca o codigo completo.
+Se for uma modificacao, explique as mudancas e forneca o codigo atualizado.
 
-Formato de resposta para código:
-\`\`\`tsx
-// /App.tsx
-import React from 'react'
-
-export default function App() {
-  return <div>Hello</div>
-}
+Formate as respostas de codigo usando blocos de codigo markdown com a linguagem especificada.
+Exemplo:
+\`\`\`typescript
+// codigo aqui
 \`\`\`
 
-Seja conciso e direto. Foque em entregar código funcional e bem estruturado.
-`
+Quando criar componentes React, use functional components com hooks.
+Inclua tipagem TypeScript adequada.
+Use 'use client' quando o componente precisar de interatividade no browser.`
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { message, context, history, projectId } = await request.json()
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!message) {
-      return NextResponse.json(
-        { error: "Message is required" },
-        { status: 400 }
-      )
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Build conversation messages
+    const { message, projectId, context, history } = await request.json()
+
+    if (!message || !projectId) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Verify user has access to the project
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id, user_id")
+      .eq("id", projectId)
+      .single()
+
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    // Check if user owns the project or is a collaborator
+    if (project.user_id !== user.id) {
+      const { data: collaborator } = await supabase
+        .from("project_collaborators")
+        .select("role")
+        .eq("project_id", projectId)
+        .eq("user_id", user.id)
+        .single()
+
+      if (!collaborator || collaborator.role === "viewer") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+      }
+    }
+
+    // Build messages for OpenAI
     const messages: OpenAI.ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
     ]
 
-    // Add context about current files
+    // Add context about existing files
     if (context) {
       messages.push({
         role: "system",
@@ -57,7 +83,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // Add chat history
+    // Add conversation history
     if (history && Array.isArray(history)) {
       for (const msg of history) {
         messages.push({
@@ -70,6 +96,7 @@ export async function POST(request: Request) {
     // Add current message
     messages.push({ role: "user", content: message })
 
+    // Call OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages,
@@ -77,23 +104,70 @@ export async function POST(request: Request) {
       max_tokens: 4096,
     })
 
-    const content = completion.choices[0]?.message?.content || ""
+    const responseContent = completion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta."
 
-    return NextResponse.json({ content })
-  } catch (error: any) {
+    // Save messages to database
+    await supabase.from("chat_messages").insert([
+      {
+        project_id: projectId,
+        user_id: user.id,
+        role: "user",
+        content: message,
+      },
+      {
+        project_id: projectId,
+        user_id: user.id,
+        role: "assistant",
+        content: responseContent,
+      },
+    ])
+
+    // Parse code changes from response (if any)
+    const codeChanges = parseCodeChanges(responseContent)
+
+    return NextResponse.json({
+      content: responseContent,
+      codeChanges,
+    })
+  } catch (error) {
     console.error("Chat API error:", error)
-
-    // Handle rate limiting or API errors gracefully
-    if (error?.status === 429) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded. Please wait a moment." },
-        { status: 429 }
-      )
-    }
-
     return NextResponse.json(
-      { error: "Failed to process message" },
+      { error: "Internal server error" },
       { status: 500 }
     )
   }
+}
+
+function parseCodeChanges(content: string): Array<{ path: string; content: string; action: string }> {
+  const codeChanges: Array<{ path: string; content: string; action: string }> = []
+
+  // Match code blocks with file paths
+  // Pattern: ```language:path/to/file or // path/to/file at the start of code block
+  const codeBlockRegex = /```(\w+)?(?::([^\n]+))?\n([\s\S]*?)```/g
+  let match
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    const language = match[1]
+    let filePath = match[2]
+    const code = match[3]
+
+    // Try to extract path from first line comment if not in header
+    if (!filePath && code) {
+      const firstLine = code.split("\n")[0]
+      const pathMatch = firstLine.match(/^\/\/\s*(.+\.\w+)/) || firstLine.match(/^#\s*(.+\.\w+)/)
+      if (pathMatch) {
+        filePath = pathMatch[1]
+      }
+    }
+
+    if (filePath && code) {
+      codeChanges.push({
+        path: filePath.startsWith("/") ? filePath : `/${filePath}`,
+        content: code.trim(),
+        action: "update",
+      })
+    }
+  }
+
+  return codeChanges
 }
